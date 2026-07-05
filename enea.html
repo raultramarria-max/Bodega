@@ -293,8 +293,8 @@ function kpis(){
 function cat8(key){
   const map={};
   DATA.forEach(r=>{
-    const c = r.desc.split(' ')[0]||'OTRO';
-    map[c]=(map[c]||0)+r[key];
+    const c = r.desc.split(' ')[0]||'OTRO'; let cat=c.toUpperCase().replace(/\./g,''); if(cat.startsWith('ETIQ')) cat='ETIQUETA';
+    map[cat]=(map[cat]||0)+r[key];
   });
   return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
 }

@@ -163,7 +163,7 @@ function normKeys(rows){return (rows||[]).map(function(r){var o={};for(var k in 
 function parseRows(rows){
   rows = normKeys(rows);return rows.map(r=>({art:r['Número de artículo']||r['Numero de articulo']||'',desc:r['Descripción del artículo']||r['Descripcion del articulo']||'',almacen:r['Nombre de almacén']||r['Nombre de almacen']||'',stock:parseFloat(r['En stock'])||0,precio:parseFloat(r['Precio promedio'])||0,val:parseFloat(r['Valorizado'])||0}))}
 function kpis(){const tot=DATA.reduce((a,r)=>a+r.val,0);const totStock=DATA.reduce((a,r)=>a+r.stock,0);document.getElementById('kv-val').textContent=fmtCLP(tot);document.getElementById('kv-items').textContent=DATA.length.toLocaleString('es-CL');document.getElementById('kv-stock').textContent = fmt(totStock) + ' unid/kg';}
-function cat8(key){const map={};DATA.forEach(r=>{const c=r.desc.split(' ')[0]||'OTRO';map[c]=(map[c]||0)+r[key];});return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);}
+function cat8(key){const map={};DATA.forEach(r=>{const c=r.desc.split(' ')[0]||'OTRO'; let cat=c.toUpperCase().replace(/\./g,''); if(cat.startsWith('ETIQ')) cat='ETIQUETA';map[cat]=(map[cat]||0)+r[key];});return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);}
 function top10(){return[...DATA].sort((a,b)=>b.val-a.val).slice(0,10)}
 const CC=['rgba(5,150,105,0.85)','rgba(110,231,183,0.85)','rgba(37,99,235,0.8)','rgba(245,158,11,0.8)','rgba(139,92,246,0.8)','rgba(236,72,153,0.8)','rgba(20,184,166,0.8)','rgba(251,146,60,0.8)'];
 
