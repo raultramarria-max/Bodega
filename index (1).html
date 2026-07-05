@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quinta — Stock de Bodegas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap');
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root{
+    --bg:#0a0e17;
+    --surface:#111827;
+    --border:#1e2d45;
+    --enea:#2563eb;
+    --enea-glow:rgba(37,99,235,0.25);
+    --vesp:#059669;
+    --vesp-glow:rgba(5,150,105,0.25);
+    --text:#f1f5f9;
+    --muted:#64748b;
+    --accent:#f59e0b;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:2rem;
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* Ambient grid */
+  body::before{
+    content:'';
+    position:fixed;inset:0;
+    background-image:
+      linear-gradient(rgba(37,99,235,0.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(37,99,235,0.04) 1px,transparent 1px);
+    background-size:60px 60px;
+    pointer-events:none;
+  }
+
+  /* Top glow */
+  body::after{
+    content:'';
+    position:fixed;top:-200px;left:50%;transform:translateX(-50%);
+    width:600px;height:400px;
+    background:radial-gradient(ellipse,rgba(37,99,235,0.12) 0%,transparent 70%);
+    pointer-events:none;
+  }
+
+  .brand{
+    font-family:'DM Serif Display',serif;
+    font-size:clamp(2rem,5vw,3.2rem);
+    letter-spacing:-0.02em;
+    text-align:center;
+    margin-bottom:.4rem;
+  }
+  .brand span{color:var(--accent)}
+
+  .subtitle{
+    color:var(--muted);
+    font-size:.875rem;
+    font-weight:400;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    text-align:center;
+    margin-bottom:3.5rem;
+  }
+
+  .cards{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1.5rem;
+    width:100%;
+    max-width:700px;
+  }
+
+  .card{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:2.5rem 2rem;
+    text-decoration:none;
+    color:inherit;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    overflow:hidden;
+  }
+  .card::before{
+    content:'';
+    position:absolute;inset:0;
+    opacity:0;
+    transition:opacity .25s ease;
+    border-radius:16px;
+  }
+  .card.enea::before{background:var(--enea-glow)}
+  .card.vesp::before{background:var(--vesp-glow)}
+  .card:hover{transform:translateY(-4px)}
+  .card.enea:hover{box-shadow:0 0 0 1px var(--enea),0 20px 40px rgba(0,0,0,.4);border-color:var(--enea)}
+  .card.vesp:hover{box-shadow:0 0 0 1px var(--vesp),0 20px 40px rgba(0,0,0,.4);border-color:var(--vesp)}
+  .card:hover::before{opacity:1}
+
+  .card-icon{
+    width:52px;height:52px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.5rem;margin-bottom:1.25rem;
+    position:relative;z-index:1;
+  }
+  .card.enea .card-icon{background:rgba(37,99,235,0.2);border:1px solid rgba(37,99,235,0.3)}
+  .card.vesp .card-icon{background:rgba(5,150,105,0.2);border:1px solid rgba(5,150,105,0.3)}
+
+  .card-name{
+    font-family:'DM Serif Display',serif;
+    font-size:1.6rem;
+    margin-bottom:.35rem;
+    position:relative;z-index:1;
+  }
+  .card.enea .card-name{color:#93c5fd}
+  .card.vesp .card-name{color:#6ee7b7}
+
+  .card-sub{
+    font-size:.8rem;color:var(--muted);
+    letter-spacing:.06em;text-transform:uppercase;
+    position:relative;z-index:1;
+    margin-bottom:1.5rem;
+  }
+
+  .card-stats{
+    display:flex;flex-direction:column;gap:.6rem;
+    position:relative;z-index:1;
+  }
+  .stat-row{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:.78rem;
+  }
+  .stat-label{color:var(--muted)}
+  .stat-val{font-weight:600;font-variant-numeric:tabular-nums}
+  .card.enea .stat-val{color:#bfdbfe}
+  .card.vesp .stat-val{color:#a7f3d0}
+
+  .arrow{
+    position:absolute;bottom:1.5rem;right:1.5rem;
+    font-size:1.2rem;opacity:.35;transition:opacity .2s,transform .2s;
+  }
+  .card:hover .arrow{opacity:1;transform:translate(3px,-3px)}
+
+  .footer{
+    margin-top:3rem;font-size:.75rem;color:var(--muted);text-align:center;
+    line-height:1.6;
+  }
+  .footer strong{color:var(--text)}
+
+  .update-section{
+    margin-top:2rem;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:1rem 1.5rem;
+    max-width:700px;width:100%;
+    display:flex;align-items:center;gap:1rem;
+  }
+  .update-label{font-size:.8rem;color:var(--muted);flex:1}
+  .update-btn{
+    background:var(--accent);color:#000;
+    border:none;border-radius:8px;padding:.5rem 1rem;
+    font-size:.8rem;font-weight:600;cursor:pointer;
+    font-family:'Inter',sans-serif;
+    transition:opacity .15s;white-space:nowrap;
+  }
+  .update-btn:hover{opacity:.85}
+  #file-input{display:none}
+
+  @media(max-width:520px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="brand">Quinta <span>·</span> Stock MP</div>
+<p class="subtitle">Bodega de Materias Primas — Selecciona planta</p>
+
+<div class="cards">
+
+  <a class="card enea" href="enea.html" id="card-enea">
+    <div class="card-icon">🏭</div>
+    <div class="card-name">ENEA</div>
+    <div class="card-sub">E1-BMP · Planta Enea</div>
+    <div class="card-stats">
+      <div class="stat-row">
+        <span class="stat-label">Ítems en stock</span>
+        <span class="stat-val" id="enea-items">261</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Stock total (kg/u)</span>
+        <span class="stat-val" id="enea-stock">1.962.299</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Valorizado total</span>
+        <span class="stat-val" id="enea-val">$435.7 M</span>
+      </div>
+    </div>
+    <div class="arrow">↗</div>
+  </a>
+
+  <a class="card vesp" href="vespucio.html" id="card-vesp">
+    <div class="card-icon">🏗️</div>
+    <div class="card-name">VESPUCIO</div>
+    <div class="card-sub">P1-BMP · Puerto Vespucio</div>
+    <div class="card-stats">
+      <div class="stat-row">
+        <span class="stat-label">Ítems en stock</span>
+        <span class="stat-val" id="vesp-items">201</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Stock total (kg/u)</span>
+        <span class="stat-val" id="vesp-stock">2.478.178</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Valorizado total</span>
+        <span class="stat-val" id="vesp-val">$256.3 M</span>
+      </div>
+    </div>
+    <div class="arrow">↗</div>
+  </a>
+
+</div>
+
+<div class="update-section">
+  <div class="update-label">
+    <strong>Actualizar datos</strong> — Carga el archivo Excel <code>stock_de_bodega.xlsx</code> para refrescar ambas bodegas<br>
+    <span id="last-update-txt">Última actualización: datos originales cargados</span>
+  </div>
+  <button class="update-btn" onclick="document.getElementById('file-input').click()">📂 Cargar Excel</button>
+  <input type="file" id="file-input" accept=".xlsx,.xls">
+</div>
+
+<div class="footer">
+  Dashboard de Stock · Quinta · Materias Primas<br>
+  Coordinación: Materias Primas — Plantas ENEA y VESPUCIO
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  // Load stored summary if exists
+  function loadSummary(){
+    try{
+      const d = JSON.parse(localStorage.getItem('quinta_stock_summary') || 'null');
+      if(!d) return;
+      document.getElementById('enea-items').textContent = d.ENEA.items.toLocaleString('es-CL');
+      document.getElementById('enea-stock').textContent = Math.round(d.ENEA.stock).toLocaleString('es-CL');
+      document.getElementById('enea-val').textContent = '$' + (d.ENEA.val/1e6).toFixed(1) + ' M';
+      document.getElementById('vesp-items').textContent = d.VESPUCIO.items.toLocaleString('es-CL');
+      document.getElementById('vesp-stock').textContent = Math.round(d.VESPUCIO.stock).toLocaleString('es-CL');
+      document.getElementById('vesp-val').textContent = '$' + (d.VESPUCIO.val/1e6).toFixed(1) + ' M';
+      document.getElementById('last-update-txt').textContent = 'Última actualización: ' + d.fecha;
+    }catch(e){}
+  }
+  loadSummary();
+
+  document.getElementById('file-input').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array'});
+        const summary = {};
+        wb.SheetNames.forEach(name => {
+          const key = name.trim().toUpperCase();
+          if(key !== 'ENEA' && key !== 'VESPUCIO') return;
+          const ws = wb.Sheets[name];
+          const rows = XLSX.utils.sheet_to_json(ws);
+          const val = rows.reduce((a,r) => a + (parseFloat(r['Valorizado'])||0), 0);
+          const stock = rows.reduce((a,r) => a + (parseFloat(r['En stock'])||0), 0);
+          summary[key] = {items: rows.length, val, stock, rows};
+        });
+        const fecha = new Date().toLocaleString('es-CL');
+        summary.fecha = fecha;
+        localStorage.setItem('quinta_stock_summary', JSON.stringify(summary));
+        // Also store full data per plant
+        if(summary.ENEA) localStorage.setItem('quinta_data_ENEA', JSON.stringify(summary.ENEA.rows));
+        if(summary.VESPUCIO) localStorage.setItem('quinta_data_VESPUCIO', JSON.stringify(summary.VESPUCIO.rows));
+        alert('✅ Datos actualizados correctamente.\n' + fecha);
+        loadSummary();
+        e.target.value = '';
+      }catch(err){
+        alert('❌ Error al leer el archivo: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+</script>
+</body>
+</html>
