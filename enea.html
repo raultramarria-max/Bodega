@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ENEA — Stock Bodega MP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e17;--surface:#111827;--surface2:#0f1929;
+  --border:#1e2d45;--accent:#2563eb;--accent2:#60a5fa;
+  --text:#f1f5f9;--muted:#64748b;--gold:#f59e0b;
+  --green:#10b981;--red:#ef4444;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(37,99,235,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.03) 1px,transparent 1px);
+  background-size:60px 60px;pointer-events:none;z-index:0;
+}
+
+/* NAV */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,14,23,0.9);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 2rem;gap:1rem;
+}
+.nav-brand{display:flex;align-items:center;gap:.75rem}
+.nav-logo{
+  width:36px;height:36px;border-radius:8px;
+  background:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;font-weight:700;color:#fff;letter-spacing:-.02em;
+}
+.nav-title{font-weight:600;font-size:.95rem}
+.nav-sub{font-size:.75rem;color:var(--muted)}
+.nav-actions{display:flex;align-items:center;gap:.75rem}
+.btn-back{
+  text-decoration:none;color:var(--muted);font-size:.8rem;
+  border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;
+  transition:color .15s,border-color .15s;
+}
+.btn-back:hover{color:var(--text);border-color:var(--accent)}
+.btn-update{
+  background:var(--gold);color:#000;border:none;border-radius:6px;
+  padding:.35rem .8rem;font-size:.78rem;font-weight:600;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:opacity .15s;
+}
+.btn-update:hover{opacity:.85}
+#fi{display:none}
+.last-update{font-size:.72rem;color:var(--muted)}
+
+/* MAIN */
+main{max-width:1400px;margin:0 auto;padding:2rem;position:relative;z-index:1}
+
+/* HEADER BANNER */
+.page-header{
+  background:linear-gradient(135deg,rgba(37,99,235,0.15) 0%,rgba(37,99,235,0.03) 100%);
+  border:1px solid rgba(37,99,235,0.25);border-radius:16px;
+  padding:2rem 2.5rem;margin-bottom:2rem;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+}
+.ph-left h1{font-family:'DM Serif Display',serif;font-size:2.2rem;color:#93c5fd;margin-bottom:.25rem}
+.ph-left p{font-size:.85rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.ph-badge{
+  background:rgba(37,99,235,0.2);border:1px solid rgba(37,99,235,0.35);
+  border-radius:100px;padding:.4rem 1rem;font-size:.78rem;
+  color:#93c5fd;font-weight:500;white-space:nowrap;
+}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+.kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem 1.5rem;position:relative;overflow:hidden;
+}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),transparent);
+}
+.kpi-label{font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem}
+.kpi-value{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent2);line-height:1;white-space:nowrap}
+.kpi-sub{font-size:.72rem;color:var(--muted);margin-top:.3rem}
+
+/* CHARTS ROW */
+.charts-row{display:grid;grid-template-columns:1.1fr 1fr;gap:1.25rem;margin-bottom:2rem}
+.chart-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;
+}
+.chart-title{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);margin-bottom:1rem}
+.chart-wrap{position:relative;height:260px}
+
+/* FULL WIDTH CHART */
+.chart-full{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;margin-bottom:2rem;
+}
+.chart-full .chart-wrap{height:220px}
+
+/* TABLE */
+.table-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;margin-bottom:2rem;
+}
+.table-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1rem;flex-wrap:wrap;gap:.75rem;
+}
+.table-title{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.search-box{
+  background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:.35rem .75rem;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:.8rem;outline:none;width:240px;
+  transition:border-color .15s;
+}
+.search-box:focus{border-color:var(--accent)}
+.search-box::placeholder{color:var(--muted)}
+
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{
+  text-align:left;padding:.6rem .8rem;
+  font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;
+  border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;
+  user-select:none;
+}
+thead th:hover{color:var(--text)}
+tbody tr{border-bottom:1px solid rgba(30,45,69,0.5);transition:background .1s}
+tbody tr:hover{background:rgba(37,99,235,0.06)}
+tbody td{padding:.55rem .8rem;vertical-align:middle;font-variant-numeric:tabular-nums}
+.td-desc{max-width:320px;font-weight:500}
+.td-num{text-align:right;color:var(--muted)}
+.td-val{text-align:right;color:var(--accent2);font-weight:600}
+.td-art{color:var(--muted);font-size:.7rem}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:1rem;flex-wrap:wrap;gap:.5rem}
+.pag-info{font-size:.75rem;color:var(--muted)}
+.pag-btns{display:flex;gap:.4rem}
+.pag-btn{
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+  border-radius:6px;padding:.3rem .65rem;font-size:.75rem;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:color .15s,border-color .15s;
+}
+.pag-btn:hover,.pag-btn.active{color:var(--text);border-color:var(--accent);background:rgba(37,99,235,0.12)}
+.pag-btn:disabled{opacity:.3;cursor:default}
+
+/* VALUE BAR */
+.val-bar-wrap{width:80px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:.4rem}
+.val-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+
+@media(max-width:900px){
+  .charts-row{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:580px){
+  .kpi-grid{grid-template-columns:1fr}
+  main{padding:1rem}
+  .nav{padding:.6rem 1rem}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">EN</div>
+    <div>
+      <div class="nav-title">ENEA — Stock Bodega MP</div>
+      <div class="nav-sub" id="nav-sub">E1-BMP Enea · Materias Primas</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <div class="last-update" id="last-update">Datos originales</div>
+    <button class="btn-update" onclick="document.getElementById('fi').click()">📂 Actualizar</button>
+    <input type="file" id="fi" accept=".xlsx,.xls">
+    <a class="btn-back" href="index.html">← Inicio</a>
+  </div>
+</nav>
+
+<main>
+
+  <div class="page-header">
+    <div class="ph-left">
+      <h1>Planta ENEA</h1>
+      <p>Bodega de Materias Primas · E1-BMP</p>
+    </div>
+    <div class="ph-badge" id="ph-badge">🟢 Stock activo</div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Valorizado Total</div>
+      <div class="kpi-value" id="kv-val">$398.856.410</div>
+      <div class="kpi-sub">CLP · Precio promedio ponderado</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Ítems en Stock</div>
+      <div class="kpi-value" id="kv-items">257</div>
+      <div class="kpi-sub">Artículos con existencia &gt; 0</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Unidades / Kg Totales</div>
+      <div class="kpi-value" id="kv-stock">1.903.302 unid/kg</div>
+      <div class="kpi-sub">Suma total en stock físico</div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Top 10 ítems por valorizado</div>
+      <div class="chart-wrap"><canvas id="chartTop10"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Valorizado por categoría</div>
+      <div class="chart-wrap"><canvas id="chartCat"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-full">
+    <div class="chart-title">Distribución de stock por categoría (unidades)</div>
+    <div class="chart-wrap"><canvas id="chartStockCat"></canvas></div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Detalle de Inventario</div>
+      <input class="search-box" id="search" type="text" placeholder="Buscar artículo…">
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortTable('art')">N° Art ↕</th>
+            <th onclick="sortTable('desc')">Descripción ↕</th>
+            <th onclick="sortTable('stock')" style="text-align:right">En Stock ↕</th>
+            <th onclick="sortTable('precio')" style="text-align:right">Precio Prom. ↕</th>
+            <th onclick="sortTable('val')" style="text-align:right">Valorizado ↕</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <div class="pag-info" id="pag-info"></div>
+      <div class="pag-btns" id="pag-btns"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const EMBEDDED = [{"Número de artículo": 405682, "Descripción del artículo": "ALMENDRAS FILETEADAS TOSTADAS ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 40, "Precio promedio": 10690, "Valorizado": 427600}, {"Número de artículo": 104006, "Descripción del artículo": "AZUCAR GRANULADA EGC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2066, "Precio promedio": 900, "Valorizado": 1859400}, {"Número de artículo": 405418, "Descripción del artículo": "AZUCAR FLOR 5KG MEL ALIMENTOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 185, "Precio promedio": 1371.65, "Valorizado": 253755.25}, {"Número de artículo": 107302, "Descripción del artículo": "BELCOLADE AMARGO 55% PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 245, "Precio promedio": 12960, "Valorizado": 3175200}, {"Número de artículo": 404316, "Descripción del artículo": "BASE DE TARTALETA SOFT BLANCA PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 273, "Precio promedio": 1646, "Valorizado": 449358}, {"Número de artículo": 405445, "Descripción del artículo": "BASE TORTA 15PP ALTA COEXPAN", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 96200, "Precio promedio": 93.6, "Valorizado": 9004320}, {"Número de artículo": 405645, "Descripción del artículo": "BIZCOCHO # 20 BLANCO C/AMAPOLAS PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 44, "Precio promedio": 2450, "Valorizado": 107800}, {"Número de artículo": 400216, "Descripción del artículo": "BIZCOCHO CARROT CAKE PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 45, "Precio promedio": 4322, "Valorizado": 194490}, {"Número de artículo": 405482, "Descripción del artículo": "ALMENDRAS FILETEADAS EGC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 146, "Precio promedio": 11250.01, "Valorizado": 1642501.46}, {"Número de artículo": 403338, "Descripción del artículo": "BLISTER 7189 1 PASTEL DEANDES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 13800, "Precio promedio": 49.44, "Valorizado": 682272}, {"Número de artículo": 400205, "Descripción del artículo": "BOLSA PEBD 40x42 CM x35 MICRAS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 39.29, "Valorizado": 78580}, {"Número de artículo": 400203, "Descripción del artículo": "BOLSA PREPICADA BANDEJA (22+60+22)104x90", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 389.6, "Precio promedio": 2749.62, "Valorizado": 1071251.952}, {"Número de artículo": 405786, "Descripción del artículo": "BLISTER 243BBTA DEANDES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 107, "Valorizado": 642000}, {"Número de artículo": 402263, "Descripción del artículo": "BOLSA PREPICADA BANDEJA  100*90 COLOR AZUL ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 291.9, "Precio promedio": 2478.74, "Valorizado": 723544.206}, {"Número de artículo": 106401, "Descripción del artículo": "CAFE POLVO WINKLER", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7, "Precio promedio": 21844.29, "Valorizado": 152910.03}, {"Número de artículo": 107120, "Descripción del artículo": "BRILLO FRIO RTU PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 805.5, "Precio promedio": 1829.98, "Valorizado": 1474048.89}, {"Número de artículo": 107367, "Descripción del artículo": "CAJA DE ENCOMIENDA (EN) SYCOR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2400, "Precio promedio": 890.76, "Valorizado": 2137824}, {"Número de artículo": 101002, "Descripción del artículo": "CACAO AMARGO PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 125, "Precio promedio": 12467.56, "Valorizado": 1558445}, {"Número de artículo": 107361, "Descripción del artículo": "CAJA  PTG AZUL 15PP ALTA SYCOR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3598, "Precio promedio": 585, "Valorizado": 2104830}, {"Número de artículo": 107366, "Descripción del artículo": "CAJA MADRE DE PLANCHAS (PL) SYCOR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1325, "Precio promedio": 721.89, "Valorizado": 956504.25}, {"Número de artículo": 405503, "Descripción del artículo": "CAJA PASTELES ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 362, "Precio promedio": 407, "Valorizado": 147334}, {"Número de artículo": 107365, "Descripción del artículo": "CAJA PRODUCTO SECO (PS) SYCOR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4191, "Precio promedio": 493, "Valorizado": 2066163}, {"Número de artículo": 405696, "Descripción del artículo": "CAJA PASTELES 600X325X120 ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 659, "Precio promedio": 600, "Valorizado": 395400}, {"Número de artículo": 405794, "Descripción del artículo": "CAJA PASTELES 600X325X120 FULL CARTON", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 750, "Precio promedio": 600, "Valorizado": 450000}, {"Número de artículo": 403219, "Descripción del artículo": "CAPSULA OVALADA N° 10 ARRIAZA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 6.1, "Valorizado": 36600}, {"Número de artículo": 107312, "Descripción del artículo": "CEREZAS AL JUGO CAMPOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 469.9, "Precio promedio": 5980, "Valorizado": 2810002}, {"Número de artículo": 403336, "Descripción del artículo": "CEREZAS AL JUGO DESCAROZADAS TRES ERRES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 57.9, "Precio promedio": 5056.18, "Valorizado": 292752.822}, {"Número de artículo": 405748, "Descripción del artículo": "CHOCOLATE BLANCO SICAO MEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 170, "Precio promedio": 12238, "Valorizado": 2080460}, {"Número de artículo": 405749, "Descripción del artículo": "CARAVELLA RELL FRÍO-CALIENTE AVELLANA 13 KG MASTER MARTINI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 247, "Precio promedio": 6000, "Valorizado": 1482000}, {"Número de artículo": 405373, "Descripción del artículo": "CINTA BICOLOR BNEGRO #500", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 307.5, "Precio promedio": 14167.83, "Valorizado": 4356607.725}, {"Número de artículo": 402255, "Descripción del artículo": "CINTA DE EMBALAJE 72x100 SOLUTION", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 824, "Precio promedio": 1290, "Valorizado": 1062960}, {"Número de artículo": 404309, "Descripción del artículo": "CINTA NEGRA GC ZUKKER", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 352, "Precio promedio": 8885, "Valorizado": 3127520}, {"Número de artículo": 107249, "Descripción del artículo": "COBERTURA CHOCOLATES MONEDAS PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 303, "Precio promedio": 3750, "Valorizado": 1136250}, {"Número de artículo": 107134, "Descripción del artículo": "COCO RALLADO ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 240, "Precio promedio": 3599.96, "Valorizado": 863990.4}, {"Número de artículo": 405747, "Descripción del artículo": "COCTEL DE FRUTA CAMPOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 343.8, "Precio promedio": 3703, "Valorizado": 1273091.4}, {"Número de artículo": 403355, "Descripción del artículo": "COGÑAC TRES PALOS DE 1LT", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 56.9, "Precio promedio": 1975.94, "Valorizado": 112430.986}, {"Número de artículo": 107320, "Descripción del artículo": "COLDFIL PIE DE LIMÓN", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 418.5, "Precio promedio": 3122, "Valorizado": 1306557}, {"Número de artículo": 405427, "Descripción del artículo": "COLORANTE ARTIFICIAL AMARILLO DUAS RODAS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5, "Precio promedio": 8897.8, "Valorizado": 44489}, {"Número de artículo": 107197, "Descripción del artículo": "COBERTURA CHOCOLATE BLANCO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 420, "Precio promedio": 5296.65, "Valorizado": 2224593}, {"Número de artículo": 107323, "Descripción del artículo": "COMBO 88 ALTA 12 PP LISA MOLDES PAC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4140, "Precio promedio": 231.4, "Valorizado": 957996}, {"Número de artículo": 170183, "Descripción del artículo": "CREMA AMBIANTE NATA PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1101, "Precio promedio": 3376, "Valorizado": 3716976}, {"Número de artículo": 107300, "Descripción del artículo": "COMBO 88 ALTA 12 PP MOLDES PAC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10990, "Precio promedio": 212.66, "Valorizado": 2337133.4}, {"Número de artículo": 405560, "Descripción del artículo": "COSTA CHOCOLATE 24X140 GRS CAROZZI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 179.48, "Precio promedio": 3848.3, "Valorizado": 690692.884}, {"Número de artículo": 405559, "Descripción del artículo": "CREAM CHEESE BALDE MILKAUT SANTA ROSA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 316.8, "Precio promedio": 6554.03, "Valorizado": 2076316.704}, {"Número de artículo": 107337, "Descripción del artículo": "CREMA AMBIENTE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 27, "Precio promedio": 2560, "Valorizado": 69120}, {"Número de artículo": 107342, "Descripción del artículo": "CREMA CHANTYPACK PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1204, "Precio promedio": 2391, "Valorizado": 2878764}, {"Número de artículo": 107237, "Descripción del artículo": "CREMA CHOCOLATE RICHS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1406.5, "Precio promedio": 4103.26, "Valorizado": 5771235.19}, {"Número de artículo": 107104, "Descripción del artículo": "CREMA LACTEA DIWATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5410, "Precio promedio": 3380, "Valorizado": 18285800}, {"Número de artículo": 107142, "Descripción del artículo": "CREMA LACTEA SOPROLE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 700, "Precio promedio": 3250, "Valorizado": 2275000}, {"Número de artículo": 107105, "Descripción del artículo": "CREMFIL PIE DE LIMON PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 531, "Precio promedio": 1914.73, "Valorizado": 1016721.63}, {"Número de artículo": 107098, "Descripción del artículo": "CREMA PASTELERA ESPECIAL PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1420, "Precio promedio": 3200, "Valorizado": 4544000}, {"Número de artículo": 107242, "Descripción del artículo": "CREMA RELLENO SABOR NARANJA ESP. QUINTA SC 1X5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3580, "Precio promedio": 4270.74, "Valorizado": 15289249.2}, {"Número de artículo": 405673, "Descripción del artículo": "CREMA VEGETAL AMBIANTE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 212, "Precio promedio": 3512, "Valorizado": 744544}, {"Número de artículo": 103612, "Descripción del artículo": "CREMA VEGETAL MASTER MARTINI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1701, "Precio promedio": 2600, "Valorizado": 4422600}, {"Número de artículo": 107209, "Descripción del artículo": "CREMA WHIP TOPPIN RICH", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1096, "Precio promedio": 2402.5, "Valorizado": 2633140}, {"Número de artículo": 393400, "Descripción del artículo": "COVER PASTELERÍA U2 SEMIAMARGO GOTA PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 98, "Precio promedio": 3770, "Valorizado": 369460}, {"Número de artículo": 403225, "Descripción del artículo": "CUPULA 170B DEANDES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2040, "Precio promedio": 256, "Valorizado": 522240}, {"Número de artículo": 107345, "Descripción del artículo": "CUPULA 170BX DEANDES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7440, "Precio promedio": 185.4, "Valorizado": 1379376}, {"Número de artículo": 403212, "Descripción del artículo": "CUPULA BRAZO REINA MONSALVE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2084, "Precio promedio": 210, "Valorizado": 437640}, {"Número de artículo": 404314, "Descripción del artículo": "CUPULA MEDIA TORTA FOOD PACK", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5100, "Precio promedio": 235.81, "Valorizado": 1202631}, {"Número de artículo": 107339, "Descripción del artículo": "CUPULA TARTA 1025-3 MOLDES PAC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8190, "Precio promedio": 258.99, "Valorizado": 2121128.1}, {"Número de artículo": 107344, "Descripción del artículo": "CUPULA TORTA ALTA  15PP (98-5) MOLDESPAC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 13440, "Precio promedio": 243.32, "Valorizado": 3270220.8}, {"Número de artículo": 107127, "Descripción del artículo": "DECORCREM BLANCO 4k PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 356, "Precio promedio": 6263.21, "Valorizado": 2229702.76}, {"Número de artículo": 405444, "Descripción del artículo": "CUPULA TORTA 15 PP ALTA COEXPAN", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 59600, "Precio promedio": 252, "Valorizado": 15019200}, {"Número de artículo": 107303, "Descripción del artículo": "CURLS CHOCOLATE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 136, "Precio promedio": 22359.41, "Valorizado": 3040879.76}, {"Número de artículo": 107108, "Descripción del artículo": "DECORCREM NEGRO PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 823.5, "Precio promedio": 4199.99, "Valorizado": 3458691.765}, {"Número de artículo": 405278, "Descripción del artículo": "CUPULA TORTA 15PP (98-45) MOLDESPAC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 11730, "Precio promedio": 244.99, "Valorizado": 2873732.7}, {"Número de artículo": 405740, "Descripción del artículo": "DISCO CARTON BLANCO 19 CM PRAGGA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 41200, "Precio promedio": 24.9, "Valorizado": 1025880}, {"Número de artículo": 403278, "Descripción del artículo": "DISCO CARTON CAFE CORRUGADO 15,5CM CM ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 30509, "Precio promedio": 27, "Valorizado": 823743}, {"Número de artículo": 353009, "Descripción del artículo": "DISCO PANQUEQUE VAINILLA 19 CM. SEMI ELABORADO UND", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 9360, "Precio promedio": 147.44, "Valorizado": 1380038.4}, {"Número de artículo": 107210, "Descripción del artículo": "DISCO MERENGUE PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 18252, "Precio promedio": 771.66, "Valorizado": 14084338.32}, {"Número de artículo": 405582, "Descripción del artículo": "DISCO MICROCORRUGADO EMPLACADO 15,5 CM DIÁMETRO ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 27736, "Precio promedio": 49, "Valorizado": 1359064}, {"Número de artículo": 405583, "Descripción del artículo": "DISCO MICROCORRUGADO EMPLACADO 19 CM DIÁMETRO ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 155550, "Precio promedio": 49, "Valorizado": 7621950}, {"Número de artículo": 405795, "Descripción del artículo": "DISCO MICROCORRUGADO EMPLACADO 19 CM DIÁMETRO FULL CARTON", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2250, "Precio promedio": 49, "Valorizado": 110250}, {"Número de artículo": 107247, "Descripción del artículo": "DULCE DE LECHE MASTER MARTINI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1750, "Precio promedio": 3090, "Valorizado": 5407500}, {"Número de artículo": 107294, "Descripción del artículo": "DULCE DE RELLENO DIWATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1638, "Precio promedio": 1660, "Valorizado": 2719080}, {"Número de artículo": 107125, "Descripción del artículo": "DURAZNO EN CUBOS ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 682.2, "Precio promedio": 2583, "Valorizado": 1762122.6}, {"Número de artículo": 405652, "Descripción del artículo": "ESENCIA DE VAINILLA TRAVERSO EGC", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8.5, "Precio promedio": 1970.24, "Valorizado": 16747.04}, {"Número de artículo": 107401, "Descripción del artículo": "DURAZNO EN SLICE LAS PERDICES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 430.2, "Precio promedio": 2426.1, "Valorizado": 1043708.22}, {"Número de artículo": 405752, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA BROWNIE ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 22.7, "Valorizado": 113500}, {"Número de artículo": 405353, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA CUSINE & CO JUMBO COOKIES AND CREAM", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 22.7, "Valorizado": 90800}, {"Número de artículo": 405358, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. JUMBO TARTA FRUTA MIXTA SURTIDA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 20.31, "Valorizado": 203100}, {"Número de artículo": 405712, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. OPP TORTA MIL HOJAS MANJAR ARTESANAL WALMART", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 20000, "Precio promedio": 22.7, "Valorizado": 454000}, {"Número de artículo": 405453, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TARTA MANJAR NUEZ ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1000, "Precio promedio": 20.7, "Valorizado": 20700}, {"Número de artículo": 405785, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TARTA PISTACHO ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 20.7, "Valorizado": 103500}, {"Número de artículo": 405787, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA HOJA FRAMBUESA ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 22.7, "Valorizado": 136200}, {"Número de artículo": 405754, "Descripción del artículo": "ETIQ.CIRCULAR 9cm IMPR. TORTA SAN JORGE AVELLANA ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 45, "Valorizado": 225000}, {"Número de artículo": 405688, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA IGNACIA ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 45, "Valorizado": 270000}, {"Número de artículo": 405698, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA LEMON CAKE ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3000, "Precio promedio": 26, "Valorizado": 78000}, {"Número de artículo": 405449, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA MERENGUE MANZANA FRAMBUESA ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 15000, "Precio promedio": 22.7, "Valorizado": 340500}, {"Número de artículo": 405448, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA MERENGUE NOUGAT ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 21.95, "Valorizado": 109750}, {"Número de artículo": 405753, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA MOUSSE CHOCOLATE BLANCO ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 22.7, "Valorizado": 113500}, {"Número de artículo": 405686, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA RED VELVET ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 45, "Valorizado": 270000}, {"Número de artículo": 405301, "Descripción del artículo": "ETIQ. CIRCULAR 9cm IMPR. PIE DE FRAMBUESA ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 17.17, "Valorizado": 137360}, {"Número de artículo": 405300, "Descripción del artículo": "ETIQ. CIRCULAR 9cm IMPR. PIE DE LIMÓN ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7000, "Precio promedio": 17.17, "Valorizado": 120190}, {"Número de artículo": 405302, "Descripción del artículo": "ETIQ. CIRCULAR 9cm IMPR. PIE DE MARACUYÁ ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 17.17, "Valorizado": 85850}, {"Número de artículo": 405535, "Descripción del artículo": "ETIQ. CIRCULAR 9cm IMPR. TORTA CALUGA NUEZ JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12000, "Precio promedio": 26, "Valorizado": 312000}, {"Número de artículo": 405129, "Descripción del artículo": "ETIQ.CIRCULAR 9cm IMPR. TORTA HOJA PASTELERA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 15000, "Precio promedio": 20.7, "Valorizado": 310500}, {"Número de artículo": 405687, "Descripción del artículo": "ETIQ. CIRCULAR 90cm IMPR. TORTA CARROT CAKE ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 45, "Valorizado": 180000}, {"Número de artículo": 405207, "Descripción del artículo": "ETIQ.CIRCULAR 9cm IMPR. TORTA SAN JORGE CHOCOLATE ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 15000, "Precio promedio": 29.4, "Valorizado": 441000}, {"Número de artículo": 405206, "Descripción del artículo": "ETIQ.CIRCULAR 9cm IMPR. TORTA SAN JORGE GUINDA ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 15000, "Precio promedio": 29.4, "Valorizado": 441000}, {"Número de artículo": 405205, "Descripción del artículo": "ETIQ.CIRCULAR 9cm IMPR. TORTA SAN JORGE LÚCUMA ARTESANAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 29.4, "Valorizado": 294000}, {"Número de artículo": 405127, "Descripción del artículo": "ETIQ.CIRCULAR 9cm TORTA PANQUEQUE NARANJA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 22.7, "Valorizado": 227000}, {"Número de artículo": 404719, "Descripción del artículo": "ETIQUETA BLANCA 100x120 SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 18000, "Precio promedio": 15.86, "Valorizado": 285480}, {"Número de artículo": 405160, "Descripción del artículo": "ETIQUETA 200X50 POLIPROPILENO IMPR. QUINTA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 16.16, "Valorizado": 161600}, {"Número de artículo": 404718, "Descripción del artículo": "ETIQUETA BLANCA 100x80 SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 7.9, "Valorizado": 39500}, {"Número de artículo": 405159, "Descripción del artículo": "ETIQUETA BLANCA 120X100 OPP", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 14.78, "Valorizado": 59120}, {"Número de artículo": 405103, "Descripción del artículo": "ETIQUETA BLANCA 200X50 SISA OPP", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 105000, "Precio promedio": 15.7, "Valorizado": 1648500}, {"Número de artículo": 404722, "Descripción del artículo": "ETIQUETA BLANCA 30X40", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 220000, "Precio promedio": 2.72, "Valorizado": 598400}, {"Número de artículo": 404748, "Descripción del artículo": "ETIQUETA BLANCA 40x200 SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 32000, "Precio promedio": 13.69, "Valorizado": 438080}, {"Número de artículo": 405461, "Descripción del artículo": "ETIQUETA CIRCULAR 4cm IMPR. PASTEL SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 15000, "Precio promedio": 5, "Valorizado": 75000}, {"Número de artículo": 404736, "Descripción del artículo": "ETIQUETA CIRCULAR 9,8cm IMPR. PIE  5 COL +UV", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 17.17, "Valorizado": 103020}, {"Número de artículo": 404735, "Descripción del artículo": "ETIQUETA CIRCULAR 9,8cm IMPR. TARTA  5 COL +UV", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 17.17, "Valorizado": 137360}, {"Número de artículo": 404745, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm IMPR. TORTA YOGURT FRUTILLA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12000, "Precio promedio": 17.17, "Valorizado": 206040}, {"Número de artículo": 404737, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm IMPR. T.CREMA PIÑA 5 COL +UV", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7000, "Precio promedio": 22.7, "Valorizado": 158900}, {"Número de artículo": 404739, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm IMPR. TORTA CREMA MANJAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 11000, "Precio promedio": 22.68, "Valorizado": 249480}, {"Número de artículo": 107227, "Descripción del artículo": "ETIQUETA CIRCULAR 90 IMPRESA TORTA MERENGUE FRAMBUESA ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 22.7, "Valorizado": 113500}, {"Número de artículo": 107228, "Descripción del artículo": "ETIQUETA CIRCULAR 90 IMPRESA TORTA MERENGUE LÚCUMA ESPECIAL JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 9000, "Precio promedio": 22.7, "Valorizado": 204300}, {"Número de artículo": 405798, "Descripción del artículo": "ETIQUETA CIRCULAR 90cm IMPR. TORTA SAN JORGE SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 22.7, "Valorizado": 227000}, {"Número de artículo": 405553, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA CREMA CHOCOLATE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 25.34, "Valorizado": 152040}, {"Número de artículo": 393426, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA DOÑA ISABEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 17.17, "Valorizado": 34340}, {"Número de artículo": 405552, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA GALLETA FRAMBUESA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 22.7, "Valorizado": 181600}, {"Número de artículo": 405378, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA GUINDA CHOCOLATE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 9000, "Precio promedio": 22.7, "Valorizado": 204300}, {"Número de artículo": 405128, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA HOJA MANJAR JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 20.7, "Valorizado": 207000}, {"Número de artículo": 405377, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA MANJAR LUCUMA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 11000, "Precio promedio": 22.7, "Valorizado": 249700}, {"Número de artículo": 393423, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA PANQUEQUE CHOCOLATE GUINDA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 22.7, "Valorizado": 181600}, {"Número de artículo": 405554, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA SABOR MANJAR NUEZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 26, "Valorizado": 260000}, {"Número de artículo": 405376, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA SACHER", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 22.7, "Valorizado": 227000}, {"Número de artículo": 393425, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA SELVA NEGRA VEGANA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 22.27, "Valorizado": 44540}, {"Número de artículo": 405614, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA TENTACIÓN DE CHOCOLATE JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 22.7, "Valorizado": 45400}, {"Número de artículo": 107266, "Descripción del artículo": "ETIQUETA CIRCULAR OPCIÓN VEGANA CRISME", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 13.65, "Valorizado": 81900}, {"Número de artículo": 405111, "Descripción del artículo": "ETIQUETA CIRCULAR TORTA AMOR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 17.17, "Valorizado": 85850}, {"Número de artículo": 393422, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA CALUGA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 9000, "Precio promedio": 22.43, "Valorizado": 201870}, {"Número de artículo": 393421, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA CHOCOLATE REAL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 22.62, "Valorizado": 113100}, {"Número de artículo": 405615, "Descripción del artículo": "ETIQUETA CIRCULAR 9cm TORTA CHOCOTORTA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 22.7, "Valorizado": 227000}, {"Número de artículo": 405810, "Descripción del artículo": "ETIQUETA IMPRESA 150X35 TRES COLORES + U.V OPP POSTRE SABOR LÚCUMA MANJAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 17.16, "Valorizado": 102960}, {"Número de artículo": 405809, "Descripción del artículo": "ETIQUETA IMPRESA 150X35 TRES COLORES + U.V OPP POSTRE SABOR CHOCOLATE Y FRUTOS DEL BOSQUE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 17.16, "Valorizado": 68640}, {"Número de artículo": 405808, "Descripción del artículo": "ETIQUETA IMPRESA 150X35 TRES COLORES + U.V OPP POSTRE SABOR TRES LECHES CON FRAMBUESA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6000, "Precio promedio": 17.16, "Valorizado": 102960}, {"Número de artículo": 405310, "Descripción del artículo": "ETIQUETA OPP TRANSPARENTE 22X32 CRISME", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 100000, "Precio promedio": 8, "Valorizado": 800000}, {"Número de artículo": 405108, "Descripción del artículo": "ETIQUETA TORTA  MOCACCINO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7000, "Precio promedio": 22.7, "Valorizado": 158900}, {"Número de artículo": 405644, "Descripción del artículo": "ETIQUETA TORTA MERENGUE COOKIES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 22.7, "Valorizado": 90800}, {"Número de artículo": 405089, "Descripción del artículo": "ETIQUETA TORTA MERENGUE FRAMBUESA CONGELADA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 9000, "Precio promedio": 22.7, "Valorizado": 204300}, {"Número de artículo": 405643, "Descripción del artículo": "ETIQUETA TORTA MERENGUE LEMON PIE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 22.7, "Valorizado": 90800}, {"Número de artículo": 405090, "Descripción del artículo": "ETIQUETA TORTA MERENGUE LUCUMA CONGELADA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12000, "Precio promedio": 22.7, "Valorizado": 272400}, {"Número de artículo": 405119, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA PIÑA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 17.17, "Valorizado": 68680}, {"Número de artículo": 405036, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. PANQUEQUE NARANJA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12000, "Precio promedio": 22.7, "Valorizado": 272400}, {"Número de artículo": 405131, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA 4 LECHES JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 17.17, "Valorizado": 137360}, {"Número de artículo": 405124, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA BEATRIZ JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 7000, "Precio promedio": 17.17, "Valorizado": 120190}, {"Número de artículo": 405126, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA BOM BOM", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 22.1, "Valorizado": 176800}, {"Número de artículo": 107319, "Descripción del artículo": "FILLING DE GUINDA BALDE 4,5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1264.5, "Precio promedio": 4359.78, "Valorizado": 5512941.81}, {"Número de artículo": 405784, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA DURAZNO MANJAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 22.7, "Valorizado": 113500}, {"Número de artículo": 405034, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA HOJA MANJAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12000, "Precio promedio": 17.17, "Valorizado": 206040}, {"Número de artículo": 405783, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA IRLANDESA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 22.7, "Valorizado": 45400}, {"Número de artículo": 405122, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA LUCUMA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 11000, "Precio promedio": 22.7, "Valorizado": 249700}, {"Número de artículo": 405463, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA PQQ. CHOCOLATE MANJAR GUINDA SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1000, "Precio promedio": 20.24, "Valorizado": 20240}, {"Número de artículo": 405130, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA TRUFFA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 22.62, "Valorizado": 180960}, {"Número de artículo": 405120, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm  TORTA SELVA NEGRA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10000, "Precio promedio": 22.7, "Valorizado": 227000}, {"Número de artículo": 101108, "Descripción del artículo": "FIGURA DE CORAZON MANAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 10, "Precio promedio": 4060, "Valorizado": 40600}, {"Número de artículo": 107415, "Descripción del artículo": "FILLING DE FRAMBUESA MEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 220.5, "Precio promedio": 5289.39, "Valorizado": 1166310.495}, {"Número de artículo": 402111, "Descripción del artículo": "FILM TRANSPARENTE  685 MM (23CM) BATTISTA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 285, "Precio promedio": 3251.09, "Valorizado": 926560.65}, {"Número de artículo": 405123, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA VIENA JUMBO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 17.17, "Valorizado": 85850}, {"Número de artículo": 405031, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR. TORTA VIENA SISA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2000, "Precio promedio": 17.17, "Valorizado": 34340}, {"Número de artículo": 405121, "Descripción del artículo": "ETIQUETAS CIRCULAR 9cm IMPR.TORTA TRES LECHES JUMB0", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8000, "Precio promedio": 17.17, "Valorizado": 137360}, {"Número de artículo": 402132, "Descripción del artículo": "FRAMBUESA CONGELADA ALTA FRUTA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 661, "Precio promedio": 5870, "Valorizado": 3880070}, {"Número de artículo": 107160, "Descripción del artículo": "GELATINA FRAMBUESA ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 104, "Precio promedio": 5350.01, "Valorizado": 556401.04}, {"Número de artículo": 405506, "Descripción del artículo": "GALLETA OREO REGULAR ALCA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 344.38, "Precio promedio": 5242.3, "Valorizado": 1805343.274}, {"Número de artículo": 405750, "Descripción del artículo": "GANACHE BLANCO MANAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 472, "Precio promedio": 5769.25, "Valorizado": 2723086}, {"Número de artículo": 104013, "Descripción del artículo": "GELATINA S/SABOR ALFA GROUP", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 25, "Precio promedio": 7600, "Valorizado": 190000}, {"Número de artículo": 107159, "Descripción del artículo": "GELATINA S/SABOR ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 158, "Precio promedio": 9800, "Valorizado": 1548400}, {"Número de artículo": 107133, "Descripción del artículo": "GANACHE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1456, "Precio promedio": 4229.86, "Valorizado": 6158676.16}, {"Número de artículo": 300003, "Descripción del artículo": "GRANA CHOCOLATE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 208.55, "Precio promedio": 1.03, "Valorizado": 214.8065}, {"Número de artículo": 107170, "Descripción del artículo": "GRANILLO CHOCOLATE MANAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 350, "Precio promedio": 2662, "Valorizado": 931700}, {"Número de artículo": 300004, "Descripción del artículo": "GRANA BLANCA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 110, "Precio promedio": 1.03, "Valorizado": 113.3}, {"Número de artículo": 403368, "Descripción del artículo": "HOJA SENCILLA PROSERVAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1540, "Precio promedio": 165, "Valorizado": 254100}, {"Número de artículo": 403373, "Descripción del artículo": "HOJA SEPARADORA PLANCHAS PROSERVAR", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 22000, "Precio promedio": 205, "Valorizado": 4510000}, {"Número de artículo": 405804, "Descripción del artículo": "HOJA SEPARADORA SIMPLE POSTRES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5000, "Precio promedio": 293, "Valorizado": 1465000}, {"Número de artículo": 393322, "Descripción del artículo": "HOJA SEPARADORA TARTALETA DIAMETRO 255 MMS.", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 13000, "Precio promedio": 150.81, "Valorizado": 1960530}, {"Número de artículo": 405789, "Descripción del artículo": "HOJA SEPARADORA TORTA DIAMETRO 230 MMS FULL CARTON", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1284, "Precio promedio": 145, "Valorizado": 186180}, {"Número de artículo": 393320, "Descripción del artículo": "HOJA SEPARADORA TORTA DIAMETRO 230 MMS.", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 13716, "Precio promedio": 151, "Valorizado": 2071116}, {"Número de artículo": 393321, "Descripción del artículo": "HOJA SEPARADORA TORTA MEDIANA DIAMETRO 210 MMS.", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4800, "Precio promedio": 151, "Valorizado": 724800}, {"Número de artículo": 362105, "Descripción del artículo": "HOJARASCA 19 CMS. PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 68364, "Precio promedio": 178.44, "Valorizado": 12198872.16}, {"Número de artículo": 107330, "Descripción del artículo": "HARINA NUEZ TRES ERRE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 120, "Precio promedio": 2000, "Valorizado": 240000}, {"Número de artículo": 403268, "Descripción del artículo": "INSUMO DISCO PANQUEQUE CHOCOLATE 18 CM.", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 18288, "Precio promedio": 184.79, "Valorizado": 3379439.52}, {"Número de artículo": 393216, "Descripción del artículo": "INSUMO INTERPLANTA BIZCOCHO CHOCOLATE 17 CMS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3675, "Precio promedio": 697.06, "Valorizado": 2561695.5}, {"Número de artículo": 405702, "Descripción del artículo": "INSUMO INTERPLANTA BIZCOCHO RED VELVET 19 CM", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 36, "Precio promedio": 2067.92, "Valorizado": 74445.12}, {"Número de artículo": 405577, "Descripción del artículo": "INSUMO INTERPLANTA BIZCOCHO TIPO TRES LECHES 19 CM.", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 817, "Precio promedio": 1113.48, "Valorizado": 909713.16}, {"Número de artículo": 393419, "Descripción del artículo": "INSUMO SEMI ELABORADO BROWNIE VEGANO INTERPLANTA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 631, "Precio promedio": 1694.87, "Valorizado": 1069462.97}, {"Número de artículo": 405340, "Descripción del artículo": "INSUMO SEMIELABORADO GALLETA OREO MOLIDA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 11.55, "Precio promedio": 5313.33, "Valorizado": 61368.9615}, {"Número de artículo": 393415, "Descripción del artículo": "INSUMO SEMIELABORADO GALLETA DE VINO  MOLIDA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 31, "Precio promedio": 4290.97, "Valorizado": 133020.07}, {"Número de artículo": 353002, "Descripción del artículo": "INSUMO SEMI-ELABORADO INTERPLANTA BIZCOCHO CHOCOLATE 19cm", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 5018, "Precio promedio": 891.52, "Valorizado": 4473647.36}, {"Número de artículo": 353001, "Descripción del artículo": "INSUMO SEMI-ELABORADO INTERPLANTA BIZCOCHO VAINILLA 19cm", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4878, "Precio promedio": 841.2, "Valorizado": 4103373.6}, {"Número de artículo": 107259, "Descripción del artículo": "JARABE 3 LECHES SCHOLLE 10LT DIWATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 680, "Precio promedio": 2190, "Valorizado": 1489200}, {"Número de artículo": 107260, "Descripción del artículo": "JARABE DE REMOJO OCTOBINS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3900, "Precio promedio": 727.65, "Valorizado": 2837835}, {"Número de artículo": 107278, "Descripción del artículo": "JARABE DE REMOJO RON-NJA 40 BIDÓN 5 Lt", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1790, "Precio promedio": 720.8, "Valorizado": 1290232}, {"Número de artículo": 107355, "Descripción del artículo": "JUGO DE LIMÓN ALTA FRUTA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 591, "Precio promedio": 2818, "Valorizado": 1665438}, {"Número de artículo": 405319, "Descripción del artículo": "LAMINA ACETATO TRANSPARENTE 7x60 CM FPS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3500, "Precio promedio": 256, "Valorizado": 896000}, {"Número de artículo": 107333, "Descripción del artículo": "LECHE CONDENSADA UNTABLE NESTLE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 54.81, "Precio promedio": 4424.5, "Valorizado": 242506.845}, {"Número de artículo": 405539, "Descripción del artículo": "LECHE CONDENSADA WATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 85, "Precio promedio": 2950, "Valorizado": 250750}, {"Número de artículo": 107109, "Descripción del artículo": "MANJAR ARTESANAL DIWATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6310, "Precio promedio": 2323, "Valorizado": 14658130}, {"Número de artículo": 107001, "Descripción del artículo": "MARRASQUINO ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 342.886, "Precio promedio": 5603.57, "Valorizado": 1921385.703}, {"Número de artículo": 107331, "Descripción del artículo": "MANTEQUILLA WATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 20, "Precio promedio": 5799.95, "Valorizado": 115999}, {"Número de artículo": 107158, "Descripción del artículo": "MER. MEL PIÑA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 695, "Precio promedio": 3390.94, "Valorizado": 2356703.3}, {"Número de artículo": 405700, "Descripción del artículo": "MARGARINA MULTIPROPÓSITO HORNEO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 615, "Precio promedio": 1472.97, "Valorizado": 905876.55}, {"Número de artículo": 107324, "Descripción del artículo": "MARRASQUINO FRUCOL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 404.114, "Precio promedio": 5177.65, "Valorizado": 2092360.8521}, {"Número de artículo": 405408, "Descripción del artículo": "MEDIA HOJARASCA OBERENA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 396, "Precio promedio": 116.8, "Valorizado": 46252.8}, {"Número de artículo": 107113, "Descripción del artículo": "MERM. MEL GUINDA ÁCIDA QUINTA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1355, "Precio promedio": 3294.48, "Valorizado": 4464020.4}, {"Número de artículo": 405420, "Descripción del artículo": "MEDIO DISCO CARTON BLANCO 19,5 JUMBO ARRIAZA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 4000, "Precio promedio": 13, "Valorizado": 52000}, {"Número de artículo": 170173, "Descripción del artículo": "MERM. EBEL GRANDES CONSUMIDORES FRUTILLA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 865, "Precio promedio": 2035.19, "Valorizado": 1760439.35}, {"Número de artículo": 107157, "Descripción del artículo": "MERM. EBEL GUINDA (ET. VERDE) BL 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1790, "Precio promedio": 2098.8, "Valorizado": 3756852}, {"Número de artículo": 405447, "Descripción del artículo": "MERM. LAMARKA MARACUYA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 504, "Precio promedio": 2928.13, "Valorizado": 1475777.52}, {"Número de artículo": 107172, "Descripción del artículo": "MERM. MEL DURAZNO ENT. BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 665, "Precio promedio": 2018.24, "Valorizado": 1342129.6}, {"Número de artículo": 107129, "Descripción del artículo": "MERM. MEL FRAMBUESA QUINTA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1010, "Precio promedio": 4316.32, "Valorizado": 4359483.2}, {"Número de artículo": 107193, "Descripción del artículo": "MERMELADA DE FRAMBUESA EBEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1800, "Precio promedio": 3837.2, "Valorizado": 6906960}, {"Número de artículo": 107112, "Descripción del artículo": "MERENGUE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 995, "Precio promedio": 2712.91, "Valorizado": 2699345.45}, {"Número de artículo": 107211, "Descripción del artículo": "MERENGUITOS PAVESI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 112.5, "Precio promedio": 13006.37, "Valorizado": 1463216.625}, {"Número de artículo": 107280, "Descripción del artículo": "NUEVO BRILLO PARA CONGELADO PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1021.5, "Precio promedio": 2750, "Valorizado": 2809125}, {"Número de artículo": 405650, "Descripción del artículo": "NUEZ MARIPOSA CLARA CAMPOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 30, "Precio promedio": 7990, "Valorizado": 239700}, {"Número de artículo": 402130, "Descripción del artículo": "NUEZ PICADILLO LAS TRES ERRES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 105, "Precio promedio": 5000, "Valorizado": 525000}, {"Número de artículo": 405507, "Descripción del artículo": "OREO MEDIUM CRUMBS (TROZOS) ALCA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 288.772, "Precio promedio": 5312.5, "Valorizado": 1534101.25}, {"Número de artículo": 405723, "Descripción del artículo": "NECTAR SABOR NARANJA WATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 73.5, "Precio promedio": 828.9, "Valorizado": 60924.15}, {"Número de artículo": 393399, "Descripción del artículo": "PALITOS DE CHOCOLATE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 66.56, "Precio promedio": 57964.59, "Valorizado": 3858123.1104}, {"Número de artículo": 107346, "Descripción del artículo": "PIÑA EN CUBOS LAS PERDICES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1037.74, "Precio promedio": 3045.24, "Valorizado": 3160167.3576}, {"Número de artículo": 107117, "Descripción del artículo": "PIÑA EN RODAJAS ALTO LA CRUZ", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1072.22, "Precio promedio": 2569.83, "Valorizado": 2755423.1226}, {"Número de artículo": 405607, "Descripción del artículo": "PISTACHO S/CASCARA TRES ERRES", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 25, "Precio promedio": 34000, "Valorizado": 850000}, {"Número de artículo": 405530, "Descripción del artículo": "PISTACHO TROZO TOSTADO SIN SAL GRUPO CAMPOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 12, "Precio promedio": 39990, "Valorizado": 479880}, {"Número de artículo": 107316, "Descripción del artículo": "PLANCHA DE CARTON 1X1,20 ASTRA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 120, "Precio promedio": 611, "Valorizado": 73320}, {"Número de artículo": 405793, "Descripción del artículo": "PLANCHA DE CARTON 1X1,20 FULL CARTON", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 760, "Precio promedio": 617.33, "Valorizado": 469170.8}, {"Número de artículo": 405570, "Descripción del artículo": "PM CREAM VELVET BAKELS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3210, "Precio promedio": 1500, "Valorizado": 4815000}, {"Número de artículo": 107095, "Descripción del artículo": "PURE DE LUCUMA (ET. VERDE) BALDE 4,5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 2322, "Precio promedio": 4446.7, "Valorizado": 10325237.4}, {"Número de artículo": 405436, "Descripción del artículo": "PURE DE MANZANA BALDE 4,5 Kg MEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 164.5, "Precio promedio": 2428.58, "Valorizado": 399501.41}, {"Número de artículo": 405133, "Descripción del artículo": "RALLADO NEGRO 3mm ZUKKER", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 694, "Precio promedio": 5887, "Valorizado": 4085578}, {"Número de artículo": 107262, "Descripción del artículo": "REMOJO 3 LECHES RICHI", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1284.23, "Precio promedio": 1987.9, "Valorizado": 2552920.817}, {"Número de artículo": 170180, "Descripción del artículo": "REMOJO DULCERÍO 10 LITROS PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1760, "Precio promedio": 1930, "Valorizado": 3396800}, {"Número de artículo": 405556, "Descripción del artículo": "RELLENO CHOCOLATE CREAM BAKELS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1174.5, "Precio promedio": 3299.99, "Valorizado": 3875838.255}, {"Número de artículo": 107204, "Descripción del artículo": "RELLENO PIE MARACUYÁ BALDE 4,5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 261, "Precio promedio": 3304.61, "Valorizado": 862503.21}, {"Número de artículo": 405537, "Descripción del artículo": "RELLENO PISTACHO SIN TROZOS CERRILLOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 60, "Precio promedio": 9990, "Valorizado": 599400}, {"Número de artículo": 107148, "Descripción del artículo": "SABOR AROMA LUCUMA FRANCIAAROMA", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 20, "Precio promedio": 20900, "Valorizado": 418000}, {"Número de artículo": 107246, "Descripción del artículo": "SALSA DE FRAMBUESA MEL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 180, "Precio promedio": 4334.01, "Valorizado": 780121.8}, {"Número de artículo": 107275, "Descripción del artículo": "SALSA DE GUINDA BALDE 5 Kg", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 430, "Precio promedio": 5524.72, "Valorizado": 2375629.6}, {"Número de artículo": 405651, "Descripción del artículo": "SEMILLA DE AMAPOLA CAMPOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 50, "Precio promedio": 6990.04, "Valorizado": 349502}, {"Número de artículo": 401015, "Descripción del artículo": "STRECH FILM AMARILLO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 8, "Precio promedio": 3930.88, "Valorizado": 31447.04}, {"Número de artículo": 401011, "Descripción del artículo": "STRECH FILM NEGRO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 251, "Precio promedio": 3934.96, "Valorizado": 987674.96}, {"Número de artículo": 401019, "Descripción del artículo": "STRECH FILM ROJO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 100, "Precio promedio": 3833.38, "Valorizado": 383338}, {"Número de artículo": 401012, "Descripción del artículo": "STRECH FILM VERDE", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 39, "Precio promedio": 3946.33, "Valorizado": 153906.87}, {"Número de artículo": 393040, "Descripción del artículo": "SUB DISCO HOJA 15 PP", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 3825, "Precio promedio": 181.21, "Valorizado": 693128.25}, {"Número de artículo": 401013, "Descripción del artículo": "STRECH FILM AZUL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 28, "Precio promedio": 3960, "Valorizado": 110880}, {"Número de artículo": 401010, "Descripción del artículo": "STRECH FILM BLANCO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 21, "Precio promedio": 3944.71, "Valorizado": 82838.91}, {"Número de artículo": 393427, "Descripción del artículo": "TARTALETA FAMILIAR RECETA TRADICIONAL", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 48, "Precio promedio": 533.08, "Valorizado": 25587.84}, {"Número de artículo": 393349, "Descripción del artículo": "Tartaleta mediana semi-elab", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1680, "Precio promedio": 395.12, "Valorizado": 663801.6}, {"Número de artículo": 405371, "Descripción del artículo": "TRIANGULO BLANCO #45 MARMOLEADO NEGRO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6400, "Precio promedio": 45, "Valorizado": 288000}, {"Número de artículo": 107164, "Descripción del artículo": "YOGURT FRUTILLA DIWATTS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1115.62, "Precio promedio": 1129, "Valorizado": 1259534.98}, {"Número de artículo": 405134, "Descripción del artículo": "TRIANGULO NEGRO 45mm ZUKKER", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 21600, "Precio promedio": 36, "Valorizado": 777600}, {"Número de artículo": 405683, "Descripción del artículo": "TRIANGULO VERDE #85 MARMOLEADO AMARILLO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 6536, "Precio promedio": 138, "Valorizado": 901968}, {"Número de artículo": 107102, "Descripción del artículo": "TRUFA CHOCOLATE PURATOS", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 1200, "Precio promedio": 3120, "Valorizado": 3744000}, {"Número de artículo": 405533, "Descripción del artículo": "ULTRA RICH CLASICA UHT", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 262.06, "Precio promedio": 2266, "Valorizado": 593827.96}, {"Número de artículo": 405797, "Descripción del artículo": "ZANAHORIA BABY 454 GR AGROSANO", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 25.402, "Precio promedio": 7709.31, "Valorizado": 195831.8926}, {"Número de artículo": 405590, "Descripción del artículo": "VASOS CONO PAPEL FOOD PACK", "Código de almacén": "EN_MATPR", "Nombre de almacén": "E1-BMP Enea", "En stock": 20000, "Precio promedio": 12.2, "Valorizado": 244000}];
+
+let DATA = [];
+let filtered = [];
+let sortKey = 'val';
+let sortDir = -1;
+let page = 1;
+const PER_PAGE = 20;
+let maxVal = 0;
+let chartTop10, chartCat, chartStockCat;
+
+function fmt(n){ return Math.round(n).toLocaleString('es-CL') }
+function fmtM(n){ return '$' + (n/1e6).toFixed(1) + ' M' }
+function fmtCLP(n){ return '$' + Math.round(n).toLocaleString('es-CL') }
+
+function normKeys(rows){return (rows||[]).map(function(r){var o={};for(var k in r){o[String(k).trim()]=r[k];}return o;});}
+function parseRows(rows){
+  rows = normKeys(rows);
+  return rows.map(r=>({
+    art: r['Número de artículo']||r['Numero de articulo']||'',
+    desc: r['Descripción del artículo']||r['Descripcion del articulo']||'',
+    almacen: r['Nombre de almacén']||r['Nombre de almacen']||'',
+    stock: parseFloat(r['En stock'])||0,
+    precio: parseFloat(r['Precio promedio'])||0,
+    val: parseFloat(r['Valorizado'])||0,
+  }));
+}
+
+function kpis(){
+  const tot = DATA.reduce((a,r)=>a+r.val,0);
+  const totStock = DATA.reduce((a,r)=>a+r.stock,0);
+  document.getElementById('kv-val').textContent = fmtCLP(tot);
+  document.getElementById('kv-items').textContent = DATA.length.toLocaleString('es-CL');
+  document.getElementById('kv-stock').textContent = fmt(totStock) + ' unid/kg';
+}
+
+function cat8(key){
+  const map={};
+  DATA.forEach(r=>{
+    const c = r.desc.split(' ')[0]||'OTRO'; let cat=c.toUpperCase().replace(/\./g,''); if(cat.startsWith('ETIQ')) cat='ETIQUETA';
+    map[cat]=(map[cat]||0)+r[key];
+  });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+}
+
+function top10(){
+  return [...DATA].sort((a,b)=>b.val-a.val).slice(0,10);
+}
+
+const CHART_COLORS = [
+  'rgba(37,99,235,0.85)','rgba(96,165,250,0.85)','rgba(16,185,129,0.8)',
+  'rgba(245,158,11,0.8)','rgba(139,92,246,0.8)','rgba(236,72,153,0.8)',
+  'rgba(20,184,166,0.8)','rgba(251,146,60,0.8)'
+];
+
+
+// Plugin: etiquetas de valor siempre visibles en los graficos
+const valueLabels = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart) {
+    const {ctx} = chart;
+    const type = chart.config.type;
+    const horizontal = chart.config.options.indexAxis === 'y';
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (meta.hidden) return;
+      meta.data.forEach((el, i) => {
+        const v = ds.data[i];
+        if (v == null) return;
+        const fmtFn = (chart.config._config && chart.config._config._vlFormat) || chart.config._vlFormat;
+        const label = fmtFn ? fmtFn(v) : String(v);
+        ctx.save();
+        ctx.font = '600 9px Inter, sans-serif';
+        if (type === 'doughnut' || type === 'pie') {
+          const p = el.tooltipPosition();
+          const total = ds.data.reduce((a,b)=>a+(+b||0),0) || 1;
+          const pct = (v/total*100).toFixed(1) + '%';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#0a0e17';
+          ctx.fillText(pct, p.x, p.y);
+        } else if (horizontal) {
+          const x = el.x, y = el.y;
+          ctx.textBaseline = 'middle';
+          const area = chart.chartArea;
+          ctx.textAlign = 'left';
+          let tx = x + 4;
+          if (tx + ctx.measureText(label).width > area.right) { ctx.textAlign = 'right'; tx = x - 4; ctx.fillStyle = '#0a0e17'; }
+          else ctx.fillStyle = '#e2e8f0';
+          ctx.fillText(label, tx, y);
+        } else {
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          const area = chart.chartArea;
+          let ty = el.y - 3;
+          if (ty - 10 < area.top) { ty = el.y + 12; ctx.fillStyle = '#0a0e17'; ctx.textBaseline = 'top'; }
+          else ctx.fillStyle = '#e2e8f0';
+          ctx.fillText(label, el.x, ty);
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+
+function buildCharts(){
+  const t10 = top10();
+  const catV = cat8('val');
+  const catS = cat8('stock');
+
+  // Chart top 10
+  if(chartTop10) chartTop10.destroy();
+  chartTop10 = new Chart(document.getElementById('chartTop10'),{plugins:[valueLabels],_vlFormat:fmtCLP,
+    type:'bar',
+    data:{
+      labels: t10.map(r=>r.desc.length>30?r.desc.slice(0,28)+'…':r.desc),
+      datasets:[{
+        label:'Valorizado CLP',
+        data: t10.map(r=>r.val),
+        backgroundColor: CHART_COLORS,
+        borderRadius:5,borderSkipped:false,
+      }]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{size:9},boxWidth:10}},tooltip:{callbacks:{label:ctx=>' '+fmtCLP(ctx.raw)}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9},callback:v=>fmtCLP(v)},grid:{color:'rgba(30,45,69,0.5)'},border:{display:false}},
+        y:{ticks:{color:'#94a3b8',font:{size:9}},grid:{display:false},border:{display:false}}
+      }
+    }
+  });
+
+  // Pie cat
+  if(chartCat) chartCat.destroy();
+  chartCat = new Chart(document.getElementById('chartCat'),{plugins:[valueLabels],_vlFormat:fmtCLP,
+    type:'doughnut',
+    data:{
+      labels: catV.map(c=>c[0]),
+      datasets:[{data:catV.map(c=>c[1]),backgroundColor:CHART_COLORS,borderWidth:1,borderColor:'#111827',hoverOffset:6}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'right',labels:{color:'#94a3b8',font:{size:9},boxWidth:10,padding:8}},
+        tooltip:{callbacks:{label:ctx=>' '+fmtCLP(ctx.raw)}}
+      },
+      cutout:'62%'
+    }
+  });
+
+  // Stock cat
+  if(chartStockCat) chartStockCat.destroy();
+  chartStockCat = new Chart(document.getElementById('chartStockCat'),{plugins:[valueLabels],_vlFormat:function(v){return fmt(v)+' u';},
+    type:'bar',
+    data:{
+      labels: catS.map(c=>c[0]),
+      datasets:[{
+        label:'Unidades en stock',
+        data: catS.map(c=>c[1]),
+        backgroundColor: CHART_COLORS,
+        borderRadius:5,borderSkipped:false,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{size:9},boxWidth:10}},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)+' u'}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:10}},grid:{display:false},border:{display:false}},
+        y:{ticks:{color:'#64748b',font:{size:9},callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(30,45,69,0.5)'},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderTable(){
+  maxVal = Math.max(...filtered.map(r=>r.val),1);
+  const start=(page-1)*PER_PAGE, end=start+PER_PAGE;
+  const slice=filtered.slice(start,end);
+  const tb=document.getElementById('tbody');
+  tb.innerHTML=slice.map(r=>`
+    <tr>
+      <td class="td-art">${r.art}</td>
+      <td class="td-desc">${r.desc}</td>
+      <td class="td-num">${fmt(r.stock)}</td>
+      <td class="td-num">${fmtCLP(r.precio)}</td>
+      <td class="td-val">${fmtCLP(r.val)}<span class="val-bar-wrap"><span class="val-bar-fill" style="width:${(r.val/maxVal*100).toFixed(1)}%"></span></span></td>
+    </tr>`).join('');
+
+  const total=filtered.length, pages=Math.ceil(total/PER_PAGE);
+  document.getElementById('pag-info').textContent=`Mostrando ${start+1}–${Math.min(end,total)} de ${fmt(total)} ítems`;
+  const pb=document.getElementById('pag-btns');
+  pb.innerHTML='';
+  const addBtn=(lbl,pg,active,disabled)=>{
+    const b=document.createElement('button');
+    b.className='pag-btn'+(active?' active':'');
+    b.textContent=lbl;b.disabled=disabled||false;
+    b.onclick=()=>{page=pg;renderTable()};
+    pb.appendChild(b);
+  };
+  addBtn('‹',page-1,false,page===1);
+  const w=2;
+  for(let p=1;p<=pages;p++){
+    if(p===1||p===pages||Math.abs(p-page)<=w) addBtn(p,p,p===page);
+    else if(Math.abs(p-page)===w+1){const s=document.createElement('span');s.textContent='…';s.style.cssText='color:#475569;padding:0 .3rem';pb.appendChild(s);}
+  }
+  addBtn('›',page+1,false,page===pages);
+}
+
+function applyFilter(){
+  const q=document.getElementById('search').value.toLowerCase();
+  filtered=DATA.filter(r=>r.desc.toLowerCase().includes(q)||String(r.art).includes(q));
+  doSort();
+}
+
+function doSort(){
+  filtered.sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
+  page=1;renderTable();
+}
+
+function sortTable(k){
+  if(sortKey===k) sortDir*=-1; else{sortKey=k;sortDir=-1;}
+  doSort();
+}
+
+document.getElementById('search').addEventListener('input',applyFilter);
+
+function init(rows){
+  DATA=parseRows(rows);
+  filtered=[...DATA];
+  kpis();
+  doSort();
+  buildCharts();
+}
+
+// Try localStorage override, else use embedded
+function loadData(){
+  try{
+    const stored=localStorage.getItem('quinta_data_ENEA');
+    if(stored){
+      const rows=JSON.parse(stored);
+      if(rows&&rows.length>0){
+        const d=new Date();
+        const summary=JSON.parse(localStorage.getItem('quinta_stock_summary')||'{}');
+        document.getElementById('last-update').textContent=summary.fecha||'Datos actualizados';
+        init(rows); return;
+      }
+    }
+  }catch(e){}
+  document.getElementById('last-update').textContent='Datos originales (carga Excel para actualizar)';
+  init(EMBEDDED);
+}
+
+// Excel upload
+document.getElementById('fi').addEventListener('change',function(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      let found=null;
+      wb.SheetNames.forEach(name=>{
+        if(name.trim().toUpperCase()==='ENEA') found=name;
+      });
+      if(!found){alert('No se encontró la hoja ENEA en el archivo.');return;}
+      const rows=normKeys(XLSX.utils.sheet_to_json(wb.Sheets[found]));
+      localStorage.setItem('quinta_data_ENEA',JSON.stringify(rows));
+      const fecha=new Date().toLocaleString('es-CL');
+      // Update summary
+      const sum=JSON.parse(localStorage.getItem('quinta_stock_summary')||'{}');
+      sum.ENEA={items:rows.length,val:rows.reduce((a,r)=>a+(parseFloat(r['Valorizado'])||0),0),stock:rows.reduce((a,r)=>a+(parseFloat(r['En stock'])||0),0)};
+      sum.fecha=fecha;
+      localStorage.setItem('quinta_stock_summary',JSON.stringify(sum));
+      document.getElementById('last-update').textContent=fecha;
+      init(rows);
+      alert('✅ Datos ENEA actualizados: '+fecha);
+      e.target.value='';
+    }catch(err){alert('❌ Error: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+loadData();
+</script>
+</body>
+</html>
