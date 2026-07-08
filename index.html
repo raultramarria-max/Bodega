@@ -239,6 +239,7 @@
     <span id="last-update-txt">Última actualización: datos originales cargados</span>
   </div>
   <button class="update-btn" onclick="document.getElementById('file-input').click()">📂 Cargar Excel</button>
+  <button class="update-btn" onclick="descargarActualizados()" title="Genera index.html, enea.html y vespucio.html con los datos nuevos embebidos para subirlos a GitHub">💾 Descargar archivos actualizados</button>
   <input type="file" id="file-input" accept=".xlsx,.xls">
 </div>
 
@@ -251,19 +252,36 @@
 <script>
   function normKeys(rows){return (rows||[]).map(function(r){var o={};for(var k in r){o[String(k).trim()]=r[k];}return o;});}
 
-  // Load stored summary if exists
+  const SUMMARY_EMBED = {"fechaISO": "2026-07-08T00:57:54.000Z", "fecha": "datos originales", "ENEA": {"items": 257, "stock": 1903302, "val": 398856410}, "VESPUCIO": {"items": 194, "stock": 2332354, "val": 234803749}};
+  let LAST_ROWS = {};  // filas del último Excel cargado en esta sesión
+
+  function renderSummary(d, fechaTxt){
+    try{
+      if(d.ENEA){
+        document.getElementById('enea-items').textContent = d.ENEA.items.toLocaleString('es-CL');
+        document.getElementById('enea-stock').textContent = Math.round(d.ENEA.stock).toLocaleString('es-CL');
+        document.getElementById('enea-val').textContent = '$' + Math.round(d.ENEA.val).toLocaleString('es-CL');
+      }
+      if(d.VESPUCIO){
+        document.getElementById('vesp-items').textContent = d.VESPUCIO.items.toLocaleString('es-CL');
+        document.getElementById('vesp-stock').textContent = Math.round(d.VESPUCIO.stock).toLocaleString('es-CL');
+        document.getElementById('vesp-val').textContent = '$' + Math.round(d.VESPUCIO.val).toLocaleString('es-CL');
+      }
+      document.getElementById('last-update-txt').textContent = 'Última actualización: ' + fechaTxt;
+    }catch(e){}
+  }
+
+  // Muestra el resumen: localStorage SOLO si es más reciente que lo embebido en el archivo
   function loadSummary(){
     try{
       const d = JSON.parse(localStorage.getItem('quinta_stock_summary') || 'null');
-      if(!d) return;
-      document.getElementById('enea-items').textContent = d.ENEA.items.toLocaleString('es-CL');
-      document.getElementById('enea-stock').textContent = Math.round(d.ENEA.stock).toLocaleString('es-CL');
-      document.getElementById('enea-val').textContent = '$' + Math.round(d.ENEA.val).toLocaleString('es-CL');
-      document.getElementById('vesp-items').textContent = d.VESPUCIO.items.toLocaleString('es-CL');
-      document.getElementById('vesp-stock').textContent = Math.round(d.VESPUCIO.stock).toLocaleString('es-CL');
-      document.getElementById('vesp-val').textContent = '$' + Math.round(d.VESPUCIO.val).toLocaleString('es-CL');
-      document.getElementById('last-update-txt').textContent = 'Última actualización: ' + d.fecha;
+      const ts = localStorage.getItem('quinta_summary_ts') || '';
+      if(d && ts && ts > SUMMARY_EMBED.fechaISO && d.ENEA && d.VESPUCIO){
+        renderSummary(d, d.fecha + ' · solo en este navegador — usa 💾 y sube a GitHub');
+        return;
+      }
     }catch(e){}
+    renderSummary(SUMMARY_EMBED, SUMMARY_EMBED.fecha);
   }
   loadSummary();
 
@@ -285,12 +303,14 @@
           summary[key] = {items: rows.length, val, stock, rows};
         });
         const fecha = new Date().toLocaleString('es-CL');
+        const nowISO = new Date().toISOString();
         summary.fecha = fecha;
+        if(summary.ENEA){ LAST_ROWS.ENEA = summary.ENEA.rows; localStorage.setItem('quinta_data_ENEA', JSON.stringify(summary.ENEA.rows)); localStorage.setItem('quinta_ts_ENEA', nowISO); }
+        if(summary.VESPUCIO){ LAST_ROWS.VESPUCIO = summary.VESPUCIO.rows; localStorage.setItem('quinta_data_VESPUCIO', JSON.stringify(summary.VESPUCIO.rows)); localStorage.setItem('quinta_ts_VESPUCIO', nowISO); }
+        delete summary.ENEA?.rows; delete summary.VESPUCIO?.rows;
         localStorage.setItem('quinta_stock_summary', JSON.stringify(summary));
-        // Also store full data per plant
-        if(summary.ENEA) localStorage.setItem('quinta_data_ENEA', JSON.stringify(summary.ENEA.rows));
-        if(summary.VESPUCIO) localStorage.setItem('quinta_data_VESPUCIO', JSON.stringify(summary.VESPUCIO.rows));
-        alert('✅ Datos actualizados correctamente.\n' + fecha);
+        localStorage.setItem('quinta_summary_ts', nowISO);
+        alert('✅ Datos actualizados en este navegador.\n' + fecha + '\n\n⚠️ Para que el equipo los vea en GitHub Pages, presiona 💾 Descargar archivos actualizados y sube los 3 archivos a GitHub.');
         loadSummary();
         e.target.value = '';
       }catch(err){
@@ -299,6 +319,61 @@
     };
     reader.readAsArrayBuffer(file);
   });
+
+  // ---- Genera los 3 archivos con los datos nuevos embebidos, para subirlos a GitHub ----
+  function getRows(key){
+    if(LAST_ROWS[key]) return LAST_ROWS[key];
+    try{ const s = localStorage.getItem('quinta_data_' + key); if(s) return JSON.parse(s); }catch(e){}
+    return null;
+  }
+  function bajar(nombre, html){
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  async function descargarActualizados(){
+    const rowsE = getRows('ENEA'), rowsV = getRows('VESPUCIO');
+    if(!rowsE && !rowsV){ alert('Primero carga el Excel con 📂 Cargar Excel.'); return; }
+    const nowISO = new Date().toISOString();
+    const fecha = new Date().toLocaleString('es-CL');
+    const reEmb = new RegExp('const EMBEDDED\\s*=\\s*\\[[\\s\\S]*?\\];');
+    const reTs = new RegExp('const EMBED_TS\\s*=\\s*"[^"]*";');
+    const reSum = new RegExp('const SUMMARY_EMBED\\s*=\\s*\\{[\\s\\S]*?\\};');
+    try{
+      // 1) index.html con resumen embebido
+      const respI = await fetch('index.html', {cache:'no-store'});
+      if(!respI.ok) throw new Error('index.html HTTP ' + respI.status);
+      let htmlI = await respI.text();
+      const calc = rows => ({
+        items: rows.length,
+        stock: rows.reduce((a,r)=>a+(parseFloat(r['En stock'])||0),0),
+        val: rows.reduce((a,r)=>a+(parseFloat(r['Valorizado'])||0),0)
+      });
+      const nuevoSum = {
+        fechaISO: nowISO, fecha: fecha,
+        ENEA: rowsE ? calc(rowsE) : SUMMARY_EMBED.ENEA,
+        VESPUCIO: rowsV ? calc(rowsV) : SUMMARY_EMBED.VESPUCIO
+      };
+      htmlI = htmlI.replace(reSum, function(){ return 'const SUMMARY_EMBED = ' + JSON.stringify(nuevoSum) + ';'; });
+      bajar('index.html', htmlI);
+      // 2) enea.html y 3) vespucio.html con datos embebidos
+      const plantas = [['enea.html', rowsE], ['vespucio.html', rowsV]];
+      for(const [nombre, rows] of plantas){
+        if(!rows) continue;
+        await new Promise(r => setTimeout(r, 700));
+        const resp = await fetch(nombre, {cache:'no-store'});
+        if(!resp.ok) throw new Error(nombre + ' HTTP ' + resp.status);
+        let html = await resp.text();
+        html = html.replace(reEmb, function(){ return 'const EMBEDDED = ' + JSON.stringify(rows) + ';'; });
+        html = html.replace(reTs, function(){ return 'const EMBED_TS = "' + nowISO + '";'; });
+        bajar(nombre, html);
+      }
+      alert('✅ Archivos generados con datos del ' + fecha + '.\n\nSube los 3 archivos descargados a GitHub (reemplazando los existentes). En 1-2 minutos GitHub Pages mostrará los datos nuevos a todo el equipo.\n\nNota: si el navegador pregunta, permite descargar múltiples archivos.');
+    }catch(err){
+      alert('❌ No se pudieron generar los archivos: ' + err.message + '\n\nEste botón funciona cuando el dashboard está abierto desde GitHub Pages (https://...), no como archivo local (file://).');
+    }
+  }
 </script>
 </body>
 </html>
